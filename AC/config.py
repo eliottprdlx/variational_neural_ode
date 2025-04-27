@@ -1,0 +1,13 @@
+import torch
+
+env_name="CartPole-v1"
+env = gym.make(env_name)
+dt = env.unwrapped.tau  # time step of the environment 
+device="cuda" if torch.cuda.is_available() else "cpu"
+episodes=200
+gamma=0.99 
+actor_lr=7e-4 
+critic_lr=1e-3 
+lambda_=0.9
+verbose=False
+seq_length=50
