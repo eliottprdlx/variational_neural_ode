@@ -15,3 +15,5 @@ encoder_type = "gru"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 policy = None
 path = f"AC/trajectories/{env_name}_trajectories_lambda.npz"
+
+# TODO : add parameters for every neural nets

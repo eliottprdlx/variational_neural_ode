@@ -21,8 +21,8 @@ class ControlledODEFunc(ODEFunc):
         self.times: torch.Tensor  # shape (T,)
 
     def forward(self, t, z):
-        idx = torch.argmin(torch.abs(self.times - t)).item()
-        u_t = self.u[:, idx, :]  # (batch, u_dim)
+        idx = torch.argmin(torch.abs(self.times - t)).item() # TODO : verify
+        u_t = self.u[:, idx, :]  # (batch, u_dim) 
         z_and_u = torch.cat([z, u_t], dim=-1)
         in_feats = self.ode_func_net[0].in_features
         out = self.ode_func_net(z_and_u)
@@ -55,5 +55,5 @@ class DiffEqSolver(nn.Module):
 
         # one batched call: z0 is (B,latent), t is (T,)
         # returns (T, B, latent)
-        z = odeint(self.ode_func, z0, t, method=method)
+        z = odeint(self.ode_func, z0, t, method=method) # TODO : verify output shape
         return z
