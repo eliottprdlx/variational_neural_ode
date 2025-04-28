@@ -14,6 +14,7 @@ class Dataset:
             self.buffer.pop(0)
     
     def add_from_npz(self, path):
+        """ input file must be a .npz with "observations", "times", and "actions" named columns."""
         data = np.load(path, allow_pickle=True)
 
         for obs, times, actions in zip(data["observations"], data["times"], data["actions"]):

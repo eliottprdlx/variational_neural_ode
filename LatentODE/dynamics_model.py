@@ -33,6 +33,10 @@ class LatentODEVAE(DynamicsLearner):
         
         if encoder_type == 'mlp':
             self.encoder = MLPEncoder(input_dim*traj_length, hidden_dim, latent_dim, device)
+        elif encoder_type == 'id':
+            self.encoder = IdentityEncoder(input_dim*traj_length, latent_dim, device)
+        elif encoder_type == 'laplace':
+            self.encoder = LaplaceEncoder(hidden_dim, latent_dim, device)
         elif encoder_type == 'conv1d':
             self.encoder = Conv1DEncoder(input_dim, hidden_dim, latent_dim, device)
         elif encoder_type == 'gru':
@@ -43,11 +47,12 @@ class LatentODEVAE(DynamicsLearner):
             self.encoder = ODEGRUEncoder(input_dim, hidden_dim, latent_dim, device, method='dopri5', rtol=None, atol=None)
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
+        
         self.ode_func_net = utils.create_mlp(latent_dim + control_dim, hidden_dim, latent_dim, num_layers=2, activation='relu')
         self.ode_func = ControlledODEFunc(self.ode_func_net, nonlinear_func=nonlinear_func)
         self.ode_solver = DiffEqSolver(self.ode_func, method="rk4")
         
-        self.decoder = Decoder(input_dim, hidden_dim, latent_dim, device)
+        self.decoder = MLPDecoder(input_dim, hidden_dim, latent_dim, device)
     
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)

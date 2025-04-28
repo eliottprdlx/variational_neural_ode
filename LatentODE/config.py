@@ -1,16 +1,17 @@
 import torch
 
 env_name = "CartPole-v1"
-seq_len = 100
 input_dim = 4  # cartPole state space dimension
+control_dim = 1
 hidden_dim = 32
 latent_dim = 10
 num_layers = 2
-num_epochs = 200
-num_batches = 50
-num_samples_per_batch = 20
-learning_rate = 0.001
-traj_length = 20
+num_epochs = 500
+num_batches = 10
+num_samples_per_batch = 64
+learning_rate = 1e-3
+traj_length = 50
+encoder_type = "gru"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 policy = None
 path = f"AC/trajectories/{env_name}_trajectories_lambda.npz"

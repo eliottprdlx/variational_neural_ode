@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.fft as fft
 import utils
 
-class Decoder(nn.Module):
+class MLPDecoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim, device):
-        super(Decoder, self).__init__()
-        self.fc1 = utils.create_mlp(latent_dim, hidden_dim, hidden_dim, num_layers=2, activation='relu')
+        super(MLPDecoder, self).__init__()
+        self.fc1 = utils.create_mlp(latent_dim, hidden_dim, hidden_dim, num_layers=1, activation='relu')
         self.fc_out = nn.Linear(hidden_dim, input_dim)
         self.device = device
     

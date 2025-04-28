@@ -1,24 +1,27 @@
 import torch
 import numpy as np
-from models import LatentODEVAE
+from dynamics_model import LatentODEVAE
+from dataset import Dataset
 from utils import *
 from config import *
 
+print(f"Using device : {device}")
+
 print("Creating dataset...")
-if path:
-    observations, times, actions = create_obs_times_actions_from_path(path, device)
-else:
-    observations, times, actions = create_obs_times_actions_from_env(env_name, policy, device)
-control_dim = actions.shape[-1] if actions.ndim == 3 else 1
+dataset = Dataset(max_size=1000)
+dataset.add_from_npz(path)
+
+if encoder_type == 'id':
+    latent_dim = input_dim * traj_length
 
 print("Dataset created. Initializing model...")
-model = LatentODEVAE(input_dim, hidden_dim, latent_dim, control_dim, device, traj_length, encoder_type="gru")
+model = LatentODEVAE(input_dim, hidden_dim, latent_dim, control_dim, device, traj_length, encoder_type)
 model.to(device)
 
 print("Model created. Training...")
-total_losses, recon_losses, kl_losses = train(model, observations, times, actions, traj_length, num_batches, num_samples_per_batch, num_epochs)
-plot_losses(total_losses, recon_losses, kl_losses)
+total_losses, recon_losses, kl_losses = train(model, dataset, traj_length, num_batches, num_samples_per_batch, num_epochs)
+plot_losses(total_losses, recon_losses, kl_losses, encoder_type)
 
-print("Training complete. Losses and latent space plots saved.")
+print("Training complete. Losses plots saved.")
 
 
