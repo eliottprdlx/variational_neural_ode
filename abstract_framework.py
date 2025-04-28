@@ -2,7 +2,7 @@ import abc
 from typing import Protocol, List, Tuple
 import torch
 
-# -- Environment Interface --
+# environment interface
 class Env(Protocol):
     @property
     def state_dim(self) -> int: ...
@@ -12,8 +12,9 @@ class Env(Protocol):
     def dt(self) -> float: ...
     def reset(self) -> torch.Tensor: ...
     def step(self, action: torch.Tensor) -> Tuple[torch.Tensor, float, bool, dict]: ...
+    def sample_trajectory(self) -> torch.Tensor: ...
 
-# -- Dataset for trajectories --
+# dataset for trajectories
 class Dataset:
     def __init__(self, max_size: int):
         self.buffer = []
@@ -22,11 +23,9 @@ class Dataset:
         self.buffer.append(traj)
         if len(self.buffer) > self.max_size:
             self.buffer.pop(0)
-    def sample_subsequences(self, length: int, batch_size: int):
-        # returns list of subsequences
-        ...
+    def sample_subsequences(self, length: int, batch_size: int): ...
 
-# -- Dynamics Model Interface --
+# dynamics model
 class DynamicsModel(abc.ABC, torch.nn.Module):
     @abc.abstractmethod
     def predict(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
@@ -42,19 +41,19 @@ class DynamicsModel(abc.ABC, torch.nn.Module):
             actions.append(a)
         return torch.stack(states, dim=1), torch.stack(actions, dim=1)
 
-# -- Policy Interface --
+# actor
 class Policy(abc.ABC, torch.nn.Module):
     @abc.abstractmethod
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Return action distribution or deterministic action"""
 
-# -- Value Function Interface --
+# critic
 class ValueFunction(abc.ABC, torch.nn.Module):
     @abc.abstractmethod
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Return scalar value estimate"""
 
-# -- Agent orchestrating modules --
+# high-level agent
 class ModelBasedAgent:
     def __init__(self,
                  env: Env,
@@ -129,10 +128,10 @@ class ModelBasedAgent:
 # -- Example usage --
 def main():
     # instantiate concrete Env, DynamicsModel, Policy, ValueFunction
-    env = YourEnv()
-    dynamics = YourDynamicsModel()
-    policy = YourPolicy()
-    value_fn = YourValueFunction()
+    env = ...
+    dynamics = ...
+    policy = ...
+    value_fn = ...
 
     agent = ModelBasedAgent(env, dynamics, policy, value_fn)
     dataset = Dataset(max_size=100)

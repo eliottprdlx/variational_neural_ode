@@ -47,7 +47,7 @@ def sample_sub_trajectories(obs, times, actions, sub_length, n_samples):
         torch.stack(actions_sub, dim=0)
     )
 
-def train(model, obs, times, actions, sub_length=60, n_samples=20, num_epochs=1000):
+def train(model, obs, times, actions, sub_length=60, num_batches=50, num_samples_per_batch=2, num_epochs=1000):
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
     total_losses, recon_losses, kl_losses = [], [], []

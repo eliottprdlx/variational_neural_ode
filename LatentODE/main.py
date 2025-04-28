@@ -16,7 +16,7 @@ model = LatentODEVAE(input_dim, hidden_dim, latent_dim, control_dim, device, tra
 model.to(device)
 
 print("Model created. Training...")
-total_losses, recon_losses, kl_losses = train(model, observations, times, actions, sub_length=traj_length, num_epochs=num_epochs)
+total_losses, recon_losses, kl_losses = train(model, observations, times, actions, traj_length, num_batches, num_samples_per_batch, num_epochs)
 plot_losses(total_losses, recon_losses, kl_losses)
 
 print("Training complete. Losses and latent space plots saved.")
