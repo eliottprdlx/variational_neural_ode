@@ -14,13 +14,18 @@ LateX
 - design the end-to-end algorithm : ok
 - solve the interaction with real world issue : ok
 
+# 28/04/20256
+
+LatentODE 
+- clean the code : ok
+- add identity and laplace encoders : ok
+
 # TODO 
 
 LatentODE 
-- clean the code
 - identify why performance is terrible
+- start implementing ANODE
 
 CTMBRL LatentODE
 - establish a solid abstract framework
 - start coding main functions
-NB : use Yildiz's code + ChatGPT as a basis
