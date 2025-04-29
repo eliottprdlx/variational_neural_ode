@@ -24,8 +24,5 @@ LatentODE
 
 LatentODE 
 - identify why performance is terrible
+- clean and modularize the LatentODE code
 - start implementing ANODE
-
-CTMBRL LatentODE
-- establish a solid abstract framework
-- start coding main functions

@@ -6,6 +6,7 @@ from agent import ActorCriticAgent
 import gymnasium as gym
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import random
 
 class Trainer:
@@ -54,6 +55,7 @@ class Trainer:
             # Update from this trajectory
             self.agent.update_batch(trajectory)
             all_trajectories.append(trajectory)
+            
 
             all_rewards.append(total_reward)
             print(f"Episode {episode + 1}: Reward = {total_reward}")
@@ -141,4 +143,26 @@ class Trainer:
         )
 
 
+    def _plot_trajectory(self, trajectory, episode):
+        """Interactive Plotly plot of per-coordinate state trajectory for one episode."""
+        states = np.stack([step[0] for step in trajectory], axis=0)   # (T, D)
+        times  = np.array([step[6] for step in trajectory])           # (T,)
+        T, D   = states.shape
 
+        fig = make_subplots(rows=D, cols=1, shared_xaxes=True, vertical_spacing=0.02)
+        for d in range(D):
+            fig.add_trace(
+                go.Scatter(x=times, y=states[:, d], mode="lines", name=f"state {d}"),
+                row=d + 1,
+                col=1,
+            )
+        fig.update_layout(
+            height=250 * D,
+            width=900,
+            title_text=f"State trajectory – episode {episode + 1}",
+            showlegend=D == 1,   # legend only when single plot
+            xaxis_title="time (s)",
+            template="plotly_white",
+        )
+        fig.update_xaxes(title_text="time (s)", row=D, col=1)
+        fig.show()

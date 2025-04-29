@@ -10,6 +10,7 @@ print(f"Using device : {device}")
 print("Creating dataset...")
 dataset = Dataset(max_size=1000)
 dataset.add_from_npz(path)
+# dataset.normalize()
 
 if encoder_type == 'id':
     latent_dim = input_dim * traj_length
@@ -19,8 +20,7 @@ model = LatentODEVAE(input_dim, hidden_dim, latent_dim, control_dim, device, tra
 model.to(device)
 
 print("Model created. Training...")
-total_losses, recon_losses, kl_losses = train(model, dataset, traj_length, num_batches, num_samples_per_batch, num_epochs)
-plot_losses(total_losses, recon_losses, kl_losses, encoder_type)
+train(model, dataset, traj_length, num_batches, num_samples_per_batch, num_epochs, encoder_type)
 
 print("Training complete. Losses plots saved.")
 

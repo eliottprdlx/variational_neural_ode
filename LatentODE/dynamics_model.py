@@ -48,8 +48,8 @@ class LatentODEVAE(DynamicsLearner):
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
         
-        self.ode_func_net = utils.create_mlp(latent_dim + control_dim, hidden_dim, latent_dim, num_layers=2, activation='relu')
-        self.ode_func = ControlledODEFunc(self.ode_func_net, nonlinear_func=nonlinear_func)
+        self.ode_func_net = utils.create_mlp(latent_dim + control_dim, hidden_dim, latent_dim, num_layers=3, activation='relu')
+        self.ode_func = ControlledODEFunc(self.ode_func_net, nonlinear_func, interp='gaussian', interp_kwargs={"sigma": 0.03, "window": 3} )
         self.ode_solver = DiffEqSolver(self.ode_func, method="rk4")
         
         self.decoder = MLPDecoder(input_dim, hidden_dim, latent_dim, device)
@@ -64,8 +64,8 @@ class LatentODEVAE(DynamicsLearner):
         mu, logvar = self.encoder(x)
         z0 = self.reparameterize(mu, logvar)
         z = self.ode_solver(z0, t, u, method=method, rtol=rtol, atol=atol)
+        z = z.permute(1, 0, 2)
         x_recon = self.decoder(z)
-        x_recon = x_recon.permute(1, 0, 2)
         return x_recon, mu, logvar, z
     
     def loss_function(self, x_recon, x, mu, logvar, epoch=None, k=200, max_beta=1.0):

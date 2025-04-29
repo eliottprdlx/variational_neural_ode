@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from sklearn.decomposition import PCA
 import numpy as np
 
@@ -26,7 +27,7 @@ def create_mlp(input_dim, hidden_dim, output_dim, num_layers=2, activation='relu
     
     return nn.Sequential(*layers)
 
-def train(model, dataset, sub_length=60, num_batches=50, batch_size=32, num_epochs=300):
+def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encoder_type):
 
     opt = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
     clip = 1.0
@@ -43,7 +44,7 @@ def train(model, dataset, sub_length=60, num_batches=50, batch_size=32, num_epoc
             x_hat, mu, logvar, _ = model(obs, t, act)
             tot, rec, kl, beta = model.loss_function(x_hat, obs, mu, logvar, epoch)
             tot = rec + kl
-            baseline_mse = baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).mean()
+            baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).mean()
 
             opt.zero_grad()
             tot.backward()
@@ -60,10 +61,13 @@ def train(model, dataset, sub_length=60, num_batches=50, batch_size=32, num_epoc
             print(f"Ep {epoch:4d}  loss {total_hist[-1]:.4f}  "
                   f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
                   f"baseline mse {baseline_mse: .4f}")
+            obs = obs[0]
+            x_hat = x_hat[0]
+            _plot_reconstruction(obs, x_hat, epoch)
+    _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
 
-    return total_hist, recon_hist, kl_hist
 
-def plot_losses(total_losses, recon_losses, kl_losses, encoder_type):
+def _plot_losses(total_losses, recon_losses, kl_losses, encoder_type):
     fig = go.Figure()
     fig.add_trace(go.Scatter(y=total_losses, mode='lines', name='Total Loss'))
     fig.add_trace(go.Scatter(y=recon_losses, mode='lines', name='Reconstruction Loss'))
@@ -71,3 +75,34 @@ def plot_losses(total_losses, recon_losses, kl_losses, encoder_type):
     fig.update_layout(title='Losses during Training', xaxis_title='Epochs', yaxis_title='Loss')
     fig.show()
     fig.write_html(f"LatentODE/plots/losses_{encoder_type}.html")
+
+
+def _plot_reconstruction(obs: torch.Tensor, hat: torch.Tensor, epoch: int):
+    obs_np = obs.detach().cpu().numpy()
+    hat_np = hat.detach().cpu().numpy()
+    T, D = obs_np.shape
+
+    fig = make_subplots(rows=D, cols=1, shared_xaxes=True, vertical_spacing=0.02)
+    time_axis = list(range(T))
+
+    for d in range(D):
+        fig.add_trace(
+            go.Scatter(x=time_axis, y=obs_np[:, d], name=f"coord {d} | truth", mode="lines"),
+            row=d + 1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(x=time_axis, y=hat_np[:, d], name=f"coord {d} | recon", mode="lines"),
+            row=d + 1,
+            col=1,
+        )
+
+    fig.update_layout(
+        height=250 * D,
+        width=800,
+        title_text=f"Reconstruction at epoch {epoch}",
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1.0),
+    )
+    fig.update_xaxes(title_text="time step", row=D, col=1)
+    fig.show()

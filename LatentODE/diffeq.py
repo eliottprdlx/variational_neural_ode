@@ -1,59 +1,91 @@
 import torch
 import torch.nn as nn
 from torchdiffeq import odeint as odeint
+from interpolation import linear_interp, gaussian_interp
+from typing import Callable, Union, Optional, Dict
 
 
 class ODEFunc(nn.Module):
-    def __init__(self, ode_func_net, nonlinear_func = None):
+    def __init__(self, 
+                 ode_func_net : nn.Module, 
+                 nonlinear_func : Optional[nn.Module] = None):
         super(ODEFunc, self).__init__()
         self.ode_func_net = ode_func_net
         self.nonlinear_func = nonlinear_func
 
-    def forward(self, t, z):
+    def forward(self, t: torch.Tensor, z: torch.Tensor):
         out = self.ode_func_net(z)
         return self.nonlinear_func(out) if self.nonlinear_func else out
 
 
-class ControlledODEFunc(ODEFunc):
-    def __init__(self, ode_func_net, nonlinear_func = None):
-        super(ControlledODEFunc, self).__init__(ode_func_net, nonlinear_func)
-        self.u: torch.Tensor    # shape (batch, T, u_dim)
-        self.times: torch.Tensor  # shape (T,)
+class ControlledODEFunc(nn.Module):
+    def __init__(self,
+                 ode_func_net: nn.Module,
+                 nonlinear_func: Optional[nn.Module] = None,
+                 *,
+                 interp: str = 'linear',
+                 interp_kwargs: Optional[dict] = None):
+        super().__init__()
+        self.ode_func_net = ode_func_net
+        self.nonlinear_func = nonlinear_func
+        self._interp = interp
+        if interp == 'linear':
+            self._interp_fn = linear_interp
+        elif interp == 'gaussian':
+            self._interp_fn = gaussian_interp
+        else:
+            ValueError(f"Unsupported interpolation method: {interp}")
+        self._interp_kwargs = interp_kwargs or {}
 
-    def forward(self, t, z):
-        idx = torch.argmin(torch.abs(self.times - t)).item() # TODO : verify
-        u_t = self.u[:, idx, :]  # (batch, u_dim) 
-        z_and_u = torch.cat([z, u_t], dim=-1)
-        in_feats = self.ode_func_net[0].in_features
-        out = self.ode_func_net(z_and_u)
+        self.register_buffer("times", torch.empty(0))   # (T,)
+        self.register_buffer("u",     torch.empty(0))   # (B,T,u_dim)
+
+    def _u_at(self, t: torch.Tensor) -> torch.Tensor:
+        return self._interp_fn(self.times, self.u, t, **self._interp_kwargs)
+
+    def forward(self, t: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
+        u_t = self._u_at(t)                                        # (B,u_dim)
+        out = self.ode_func_net(torch.cat([z, u_t], dim=-1))
         return self.nonlinear_func(out) if self.nonlinear_func else out
 
 
 class DiffEqSolver(nn.Module):
-    def __init__(self, ode_func, method = 'dopri5', rtol = None, atol = None):
-        super(DiffEqSolver, self).__init__()
+    def __init__(self,
+                 ode_func: ControlledODEFunc,
+                 *,
+                 method: str = "dopri5",
+                 rtol:   float = 1e-5,
+                 atol:   float = 1e-5):
+        super().__init__()
         self.ode_func = ode_func
-        self.method = method
-        self.rtol = rtol
-        self.atol = atol
+        self.method, self.rtol, self.atol = method, rtol, atol
 
-    def forward(self, z0, t, u = None,method = None,rtol = None,atol = None):
-        method = method or self.method
-        rtol   = rtol   or self.rtol
-        atol   = atol   or self.atol
-        t = t.squeeze(-1)
-        # t: (B,T) or (T,)
-        if t.ndim == 2:
-            # assume every row t[i] is the same
-            # you could also sanity-check with torch.allclose
+    def forward(self,
+                z0: torch.Tensor,        # (B, latent)
+                t:  torch.Tensor,        # (T,)  OR (B,T) OR (B,T,1)
+                u:  Optional[torch.Tensor] = None,        # (B,T,u_dim)
+                *,
+                method: Optional[str] = None,
+                rtol:   Optional[float] = None,
+                atol:   Optional[float] = None):
+        
+        if t.ndim == 3:                           # (B,T,1)
+            t = t[0, :, 0]
+        elif t.ndim == 2:                         # (B,T)
             t = t[0]
+        t = t.to(z0.device)
 
         if u is not None:
-            # u: (B,T,u_dim)
-            self.ode_func.u     = u
+            assert u.shape[1] == t.numel(), "`u` and `t` lengths differ"
+            self.ode_func.u     = u.to(z0.device)
             self.ode_func.times = t
 
-        # one batched call: z0 is (B,latent), t is (T,)
-        # returns (T, B, latent)
-        z = odeint(self.ode_func, z0, t, method=method) # TODO : verify output shape
+        z = odeint(
+                self.ode_func,
+                z0,
+                t,
+                method = method or self.method,
+                rtol   = rtol   or self.rtol,
+                atol   = atol   or self.atol,
+        )                              # (T, B, latent)
         return z
