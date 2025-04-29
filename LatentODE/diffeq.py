@@ -17,7 +17,6 @@ class ODEFunc(nn.Module):
         out = self.ode_func_net(z)
         return self.nonlinear_func(out) if self.nonlinear_func else out
 
-
 class ControlledODEFunc(nn.Module):
     def __init__(self,
                  ode_func_net: nn.Module,

@@ -10,7 +10,7 @@ def get_env_dt(env):
     else:
         return 0.05
 
-env_name = "CartPole-v1"
+env_name = "Pendulum-v1"
 env = gym.make(env_name)
 dt = get_env_dt(env) # time step of the environment 
 device="cuda" if torch.cuda.is_available() else "cpu"
@@ -21,4 +21,4 @@ critic_lr=1e-3
 lambda_=0.9
 verbose=False
 seq_length= 200
-is_random = True
+use_gp = True

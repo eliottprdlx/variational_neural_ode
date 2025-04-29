@@ -62,9 +62,12 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
             print(f"Ep {epoch:4d}  loss {total_hist[-1]:.4f}  "
                   f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
                   f"baseline mse {baseline_mse: .4f}")
-            obs = obs[0]
-            x_hat = x_hat[0]
-            _plot_reconstruction(obs, x_hat, epoch)
+            _plot_reconstruction(
+                obs[0],
+                x_hat[0],
+                act[0],
+                epoch,
+            )
     _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
 
 
@@ -78,32 +81,61 @@ def _plot_losses(total_losses, recon_losses, kl_losses, encoder_type):
     fig.write_html(f"LatentODE/plots/losses_{encoder_type}.html")
 
 
-def _plot_reconstruction(obs: torch.Tensor, hat: torch.Tensor, epoch: int):
-    obs_np = obs.detach().cpu().numpy()
-    hat_np = hat.detach().cpu().numpy()
-    T, D = obs_np.shape
+def _plot_reconstruction(
+    obs: torch.Tensor,
+    hat: torch.Tensor,
+    ctrl: torch.Tensor,
+    epoch: int,
+):
+    """
+    obs  : (T, D)   – ground-truth state
+    hat  : (T, D)   – reconstructed state
+    ctrl : (T, C)   – control / action sequence
+    """
 
-    fig = make_subplots(rows=D, cols=1, shared_xaxes=True, vertical_spacing=0.02)
-    time_axis = list(range(T))
+    obs_np  = obs.detach().cpu().numpy()
+    hat_np  = hat.detach().cpu().numpy()
+    ctrl_np = ctrl.detach().cpu().numpy()
+
+    T, D = obs_np.shape
+    _, C = ctrl_np.shape
+    time_axis = np.arange(T)
+
+    titles = [f"state {d}" for d in range(D)] + [f"control {c}" for c in range(C)]
+    fig = make_subplots(
+        rows=D + C,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.02,
+        subplot_titles=titles,
+    )
 
     for d in range(D):
         fig.add_trace(
-            go.Scatter(x=time_axis, y=obs_np[:, d], name=f"coord {d} | truth", mode="lines"),
-            row=d + 1,
-            col=1,
+            go.Scatter(x=time_axis, y=obs_np[:, d],
+                       mode="lines", name=f"state {d} truth"),
+            row=d + 1, col=1,
         )
         fig.add_trace(
-            go.Scatter(x=time_axis, y=hat_np[:, d], name=f"coord {d} | recon", mode="lines"),
-            row=d + 1,
-            col=1,
+            go.Scatter(x=time_axis, y=hat_np[:, d],
+                       mode="lines", name=f"state {d} recon"),
+            row=d + 1, col=1,
+        )
+
+    for c in range(C):
+        fig.add_trace(
+            go.Scatter(x=time_axis, y=ctrl_np[:, c],
+                       mode="lines", name=f"control {c}"),
+            row=D + c + 1, col=1,
         )
 
     fig.update_layout(
-        height=250 * D,
+        height=250 * (D + C),
         width=800,
-        title_text=f"Reconstruction at epoch {epoch}",
+        title_text=f"Reconstruction + control at epoch {epoch}",
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1.0),
+        legend=dict(orientation="h", yanchor="bottom",
+                    y=1.02, xanchor="right", x=1.0),
     )
-    fig.update_xaxes(title_text="time step", row=D, col=1)
+    fig.update_xaxes(title_text="time step", row=D + C, col=1)
     fig.show()

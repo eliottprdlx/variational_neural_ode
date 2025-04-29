@@ -8,6 +8,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import random
+from config import *
 
 class Trainer:
     def __init__(self, env_name="CartPole-v1", device="cuda:0", episodes=500, gamma=0.99, actor_lr=1e-4, critic_lr=1e-3, lambda_=None, verbose=False, seq_length=200, dt=0.02):
