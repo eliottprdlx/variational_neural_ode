@@ -5,9 +5,9 @@ import torch.fft as fft
 import utils
 
 class MLPDecoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, latent_dim, device):
+    def __init__(self, input_dim, hidden_dim, latent_dim, num_layers, device):
         super(MLPDecoder, self).__init__()
-        self.fc1 = utils.create_mlp(latent_dim, hidden_dim, hidden_dim, num_layers=1, activation='relu')
+        self.fc1 = utils.create_mlp(latent_dim, hidden_dim, hidden_dim, num_layers, activation='relu')
         self.fc_out = nn.Linear(hidden_dim, input_dim)
         self.device = device
     

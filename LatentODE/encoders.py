@@ -26,7 +26,7 @@ class IdentityEncoder(nn.Module):
 
 class LaplaceEncoder(nn.Module):
     """ discrete Laplace / rFFT encoder for inputs of shape (B, T, D) """
-    def __init__(self, hidden_dim, latent_dim, device, n_freq = None, use_mag_phase = False):
+    def __init__(self, hidden_dim, latent_dim, num_layers, device, n_freq = None, use_mag_phase = False):
         super().__init__()
         if n_freq is not None:
             n_freq = int(n_freq)            # make sure it’s a plain int
@@ -38,10 +38,11 @@ class LaplaceEncoder(nn.Module):
 
         # the three MLP pieces will be built lazily once we know feature size
         self.fc1 = self.fc_mu = self.fc_logvar = None
+        self.num_layers = num_layers
 
     def _build_heads(self, in_dim, device):
         self.fc1 = utils.create_mlp(in_dim, self.hidden_dim,
-                                    self.hidden_dim, num_layers=2,
+                                    self.hidden_dim, self.num_layers,
                                     activation='relu').to(device)
         self.fc_mu     = nn.Linear(self.hidden_dim, self.latent_dim).to(device)
         self.fc_logvar = nn.Linear(self.hidden_dim, self.latent_dim).to(device)
@@ -80,9 +81,9 @@ class LaplaceEncoder(nn.Module):
 
 
 class MLPEncoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, latent_dim, device):
+    def __init__(self, input_dim, hidden_dim, latent_dim, num_layers, device):
         super(MLPEncoder, self).__init__()
-        self.fc1 = utils.create_mlp(input_dim, hidden_dim, hidden_dim, num_layers=2, activation='relu')
+        self.fc1 = utils.create_mlp(input_dim, hidden_dim, hidden_dim, num_layers, activation='relu')
         self.fc_mu = nn.Linear(hidden_dim, latent_dim)
         self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
         self.device = device
@@ -91,22 +92,6 @@ class MLPEncoder(nn.Module):
         batch_size = x.size(0)
         x = x.view(batch_size, -1)
         h = torch.relu(self.fc1(x))
-        mu = self.fc_mu(h)
-        logvar = self.fc_logvar(h)
-        return mu, logvar
-
-
-class Conv1DEncoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, latent_dim, device):
-        super(Conv1DEncoder, self).__init__()
-        self.conv1 = nn.Conv1d(input_dim, hidden_dim, kernel_size=3, stride=2)
-        self.fc_mu = nn.Linear(hidden_dim, latent_dim)
-        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
-        self.device = device
-    
-    def forward(self, x):
-        h = torch.relu(self.conv1(x))
-        h = h.view(h.size(0), -1)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
         return mu, logvar

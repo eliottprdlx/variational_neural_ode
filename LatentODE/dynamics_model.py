@@ -30,15 +30,14 @@ class LatentODEVAE(DynamicsLearner):
         self.control_dim = control_dim
         self.traj_length = traj_length
         self.learning_rate = lr
+        num_layers = 3 # TODO : separate num_layers for each neural nets
         
         if encoder_type == 'mlp':
-            self.encoder = MLPEncoder(input_dim*traj_length, hidden_dim, latent_dim, device)
+            self.encoder = MLPEncoder(input_dim*traj_length, hidden_dim, latent_dim, num_layers, device)
         elif encoder_type == 'id':
             self.encoder = IdentityEncoder(input_dim*traj_length, latent_dim, device)
         elif encoder_type == 'laplace':
-            self.encoder = LaplaceEncoder(hidden_dim, latent_dim, device)
-        elif encoder_type == 'conv1d':
-            self.encoder = Conv1DEncoder(input_dim, hidden_dim, latent_dim, device)
+            self.encoder = LaplaceEncoder(hidden_dim, latent_dim, num_layers, device)
         elif encoder_type == 'gru':
             self.encoder = GRUEncoder(input_dim, hidden_dim, latent_dim, device)
         elif encoder_type == 'lstm':
@@ -48,11 +47,11 @@ class LatentODEVAE(DynamicsLearner):
         else:
             raise ValueError(f"Unsupported encoder type: {encoder_type}")
         
-        self.ode_func_net = utils.create_mlp(latent_dim + control_dim, hidden_dim, latent_dim, num_layers=3, activation='relu')
+        self.ode_func_net = utils.create_mlp(latent_dim + control_dim, hidden_dim, latent_dim, num_layers, activation='relu')
         self.ode_func = ControlledODEFunc(self.ode_func_net, nonlinear_func, interp='gaussian', interp_kwargs={"sigma": 0.03, "window": 3} )
         self.ode_solver = DiffEqSolver(self.ode_func, method="rk4")
         
-        self.decoder = MLPDecoder(input_dim, hidden_dim, latent_dim, device)
+        self.decoder = MLPDecoder(input_dim, hidden_dim, latent_dim, num_layers, device)
     
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
