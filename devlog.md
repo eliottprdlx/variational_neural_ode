@@ -20,7 +20,7 @@ LatentODE
 - clean the code : ok
 - add identity and laplace encoders : ok
 
-# 28/04/20256
+# 29/04/20256
 
 LatentODE 
 - identify why performance is terrible : ok
