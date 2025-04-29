@@ -49,7 +49,7 @@ class Dataset:
             start = 0 if T <= length else torch.randint(0, T - length + 1, ()).item()
 
             o = obs[start:start + length]
-            if self._mean and self._std:
+            if self._mean is not None and self._std is not None:
                 o = (o - self._mean) / self._std
 
             obs_sub.append(o)

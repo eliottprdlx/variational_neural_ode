@@ -10,7 +10,7 @@ print(f"Using device : {device}")
 print("Creating dataset...")
 dataset = Dataset(max_size=1000)
 dataset.add_from_npz(path)
-# dataset.normalize()
+dataset.normalize()
 
 if encoder_type == 'id':
     latent_dim = input_dim * traj_length

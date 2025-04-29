@@ -49,7 +49,7 @@ class LatentODEVAE(DynamicsLearner):
         
         self.ode_func_net = utils.create_mlp(latent_dim + control_dim, hidden_dim, latent_dim, num_layers, activation='relu')
         self.ode_func = ControlledODEFunc(self.ode_func_net, nonlinear_func, interp='gaussian', interp_kwargs={"sigma": 0.03, "window": 3} )
-        self.ode_solver = DiffEqSolver(self.ode_func, method="rk4")
+        self.ode_solver = DiffEqSolver(self.ode_func, method="dopri5")
         
         self.decoder = MLPDecoder(input_dim, hidden_dim, latent_dim, num_layers, device)
     
@@ -67,7 +67,7 @@ class LatentODEVAE(DynamicsLearner):
         x_recon = self.decoder(z)
         return x_recon, mu, logvar, z
     
-    def loss_function(self, x_recon, x, mu, logvar, epoch=None, k=200, max_beta=1.0):
+    def loss_function(self, x_recon, x, mu, logvar, epoch=None, k=200, max_beta=0.1):
         recon = F.mse_loss(x_recon, x, reduction='mean')
 
         kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()

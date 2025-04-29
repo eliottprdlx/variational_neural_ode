@@ -27,6 +27,7 @@ def create_mlp(input_dim, hidden_dim, output_dim, num_layers=2, activation='relu
     
     return nn.Sequential(*layers)
 
+
 def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encoder_type):
 
     opt = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
