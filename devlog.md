@@ -27,11 +27,12 @@ LatentODE
 - clean and modularize the LatentODE code : ok
 - add interpolation for continuous control : ok
 - add visualization : ok
+- improved controlled trajectories generation : ok
 
 # TODO 
 
 AC 
-- modularize Trainer and enable it to generate controlled trajectories from other environments and random GP controls
+- modularize Trainer/Generator and fix
 
 LatentODE 
 - test LatentODE with other controlled trajectories
