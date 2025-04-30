@@ -43,7 +43,7 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
             obs, t, act = obs.to(model.device), t.to(model.device), act.to(model.device)
 
             x_hat, mu, logvar, _ = model(obs, t, act)
-            tot, rec, kl, beta = model.loss_function(x_hat, obs, mu, logvar, epoch)
+            tot, rec, kl = model.loss_function(x_hat, obs, mu, logvar, epoch)
             tot = rec + kl
             baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).mean()
 
@@ -57,17 +57,16 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
         total_hist.append(ep_tot / num_batches)
         recon_hist.append(ep_rec / num_batches)
         kl_hist.append(ep_kl / num_batches)
-
-        if epoch % 20 == 0:
+        if epoch % 5 == 0:
             print(f"Ep {epoch:4d}  loss {total_hist[-1]:.4f}  "
-                  f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
-                  f"baseline mse {baseline_mse: .4f}")
+                    f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
+                    f"baseline mse {baseline_mse: .4f}")
             _plot_reconstruction(
-                obs[0],
-                x_hat[0],
-                act[0],
-                epoch,
-            )
+                    obs[0],
+                    x_hat[0],
+                    act[0],
+                    epoch,
+                )
     _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
 
 

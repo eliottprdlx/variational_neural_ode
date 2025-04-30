@@ -39,7 +39,7 @@ class LatentODEVAE(DynamicsLearner):
         elif encoder_type == 'laplace':
             self.encoder = LaplaceEncoder(hidden_dim, latent_dim, num_layers, device)
         elif encoder_type == 'gru':
-            self.encoder = GRUEncoder(input_dim, hidden_dim, latent_dim, device)
+            self.encoder = GRUEncoder(input_dim, hidden_dim, latent_dim, num_layers, device)
         elif encoder_type == 'lstm':
             self.encoder = LSTMEncoder(input_dim, hidden_dim, latent_dim, device)
         elif encoder_type == 'odegru':
@@ -59,7 +59,7 @@ class LatentODEVAE(DynamicsLearner):
         z0 = mu + eps * std
         return z0
     
-    def forward(self, x, t, u=None, method=None, rtol=None, atol=None):
+    def forward(self, x, t, u, method=None, rtol=None, atol=None):
         mu, logvar = self.encoder(x)
         z0 = self.reparameterize(mu, logvar)
         z = self.ode_solver(z0, t, u, method=method, rtol=rtol, atol=atol)
@@ -67,18 +67,22 @@ class LatentODEVAE(DynamicsLearner):
         x_recon = self.decoder(z)
         return x_recon, mu, logvar, z
     
-    def loss_function(self, x_recon, x, mu, logvar, epoch=None, k=200, max_beta=0.1):
+    def loss_function(self, x_recon, x, mu, logvar, epoch=None, beta_max=1.0, kl_anneal_epochs=100):
+        # Reconstruction loss
         recon = F.mse_loss(x_recon, x, reduction='mean')
 
+        # KL divergence
         kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
 
-        if epoch is None:
-            beta = max_beta
+        # Compute annealed beta
+        if epoch is None or kl_anneal_epochs == 0:
+            beta = beta_max  # no annealing
         else:
-            beta = max_beta * min(1.0, epoch / k)
+            beta = beta_max * min(1.0, epoch / kl_anneal_epochs)
 
         total = recon + beta * kl
-        return total, recon, kl, beta
+        return total, recon, kl
+
 
 
 class ANODE(DynamicsLearner): ... # TODO : code

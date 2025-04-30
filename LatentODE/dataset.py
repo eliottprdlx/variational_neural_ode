@@ -53,7 +53,7 @@ class Dataset:
                 o = (o - self._mean) / self._std
 
             obs_sub.append(o)
-            times_sub.append(times[start:start + length])
+            times_sub.append(times[start:start + length] - times[0]) # normalize time
             actions_sub.append(actions[start:start + length])
 
         return (

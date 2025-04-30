@@ -111,17 +111,26 @@ class RNNEncoderBase(nn.Module):
 
 
 class GRUEncoder(RNNEncoderBase):
-    def __init__(self, input_dim, hidden_dim, latent_dim, device):
+    def __init__(self, input_dim, hidden_dim, latent_dim, num_layers, device, bidirectional=True):
         super(GRUEncoder, self).__init__(input_dim, hidden_dim, latent_dim, device)
-        self.gru = GRU(input_dim, hidden_dim, batch_first=True)
-        self.fc_mu = nn.Linear(hidden_dim, latent_dim)
-        self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
+        self.gru = GRU(input_dim, hidden_dim, num_layers, batch_first=True, bidirectional=bidirectional)
+        multiplier = 2 if bidirectional else 1
+        self.fc_mu = nn.Linear(hidden_dim * multiplier, latent_dim)
+        self.fc_logvar = nn.Linear(hidden_dim * multiplier, latent_dim)
+        self.bidirectional = bidirectional
     
     def forward(self, x, t=None):
-        _, h_n = self.gru(x)       # h_n: (1, batch, hidden_dim)
-        h_n = h_n.squeeze(0)       # → (batch, hidden_dim)
-        mu     = self.fc_mu(h_n)   # → (batch, latent_dim)
-        logvar = self.fc_logvar(h_n)
+        _, h_n = self.gru(x)  # (num_layers * num_directions, B, H)
+
+        if self.bidirectional:
+            forward_final = h_n[-2, :, :]  # shape (B, H)
+            backward_final = h_n[-1, :, :] # shape (B, H)
+            h_n = torch.cat([forward_final, backward_final], dim=1)  # shape (B, 2*H)
+        else:
+            h_n = h_n[-1, :, :]  # Last layer only: shape (B, H)
+
+        mu = self.fc_mu(h_n)      # shape (B, latent_dim)
+        logvar = self.fc_logvar(h_n)  # shape (B, latent_dim)
         return mu, logvar
 
 
