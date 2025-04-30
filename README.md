@@ -38,3 +38,9 @@ pip install -r requirements.txt
 ```
 
 ---
+
+## How to use
+
+1. Generate trajectories using traj_generator/main.py
+
+2. Train a VAE model on these trajectories using latent_ode_vae/main.py

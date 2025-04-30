@@ -1,4 +1,4 @@
-# 25/04/20256
+# 25/04/2025
 
 AC 
 - implement TD(lambda) with forward-view : ok
@@ -14,13 +14,13 @@ LateX
 - design the end-to-end algorithm : ok
 - solve the interaction with real world issue : ok
 
-# 28/04/20256
+# 28/04/2025
 
 LatentODE 
 - clean the code : ok
 - add identity and laplace encoders : ok
 
-# 29/04/20256
+# 29/04/2025
 
 LatentODE 
 - identify why performance is terrible : ok
@@ -29,12 +29,23 @@ LatentODE
 - add visualization : ok
 - improved controlled trajectories generation : ok
 
-# TODO 
+# 30/04/2025
 
 AC 
-- modularize Trainer/Generator and fix
+- remove : ok
 
-LatentODE 
-- test LatentODE with other controlled trajectories
-- train with a larger dataset
+latent_ode_vae
+- clean and refactor code : ok
+- modularize : ok
+
+traj_generator
+- create : ok
+
+# TODO 
+
+latent_ode_vae
+- test under different conditions
+- in-depth study of the good practice to train neuralODE
 - start implementing ANODE
+
+Create a workflow to launch a testing phase
