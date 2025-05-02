@@ -46,7 +46,7 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
             x_hat, mu, logvar, _ = model(obs, t, act)
             tot, rec, kl = model.loss_function(x_hat, obs, mu, logvar, epoch)
             tot = rec + kl
-            baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).mean()
+            baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).sum()/obs.size(0)
 
             opt.zero_grad()
             tot.backward()
@@ -58,7 +58,7 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
         total_hist.append(ep_tot / num_batches)
         recon_hist.append(ep_rec / num_batches)
         kl_hist.append(ep_kl / num_batches)
-        print(f"Ep {epoch:4d}  loss {total_hist[-1]:.4f}  "
+        print(f"loss {total_hist[-1]:.4f}  "
         f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
         f"baseline mse {baseline_mse: .4f}")
         if epoch % 20 == 0:
@@ -80,7 +80,8 @@ def train_with_length_scheduler(
     num_epochs,
     encoder_type,
     min_sub_length=10,
-    growth_coef=2
+    length_step=5,
+    epoch_step=20
 ):
     opt = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
     clip = 1.0
@@ -90,7 +91,7 @@ def train_with_length_scheduler(
         model.train()
         ep_tot = ep_rec = ep_kl = 0.0
 
-        sub_length = int(min_sub_length + growth_coef * epoch)
+        sub_length = int(min_sub_length + length_step * (epoch // epoch_step))
         sub_length = min(sub_length, max_sub_length)
 
         for _ in tqdm(range(num_batches), desc=f"Epoch {epoch} | sub_length={sub_length}"):
@@ -108,13 +109,13 @@ def train_with_length_scheduler(
             ep_tot += tot.item()
             ep_rec += rec.item()
             ep_kl += kl.item()
-            baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).mean()
+            baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).sum()/obs.size(0)
 
         total_hist.append(ep_tot / num_batches)
         recon_hist.append(ep_rec / num_batches)
         kl_hist.append(ep_kl / num_batches)
 
-        print(f"Ep {epoch:4d}  loss {total_hist[-1]:.4f}  "
+        print(f"loss {total_hist[-1]:.4f}  "
               f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
               f"baseline mse {baseline_mse: .4f}")
 

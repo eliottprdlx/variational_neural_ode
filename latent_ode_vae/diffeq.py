@@ -21,13 +21,11 @@ class ODEFunc(nn.Module):
 class ControlledODEFunc(nn.Module):
     def __init__(self,
                  ode_func_net: nn.Module,
-                 nonlinear_func: Optional[nn.Module] = None,
                  *,
                  interp: str = 'linear',
                  interp_kwargs: Optional[dict] = None):
         super().__init__()
         self.ode_func_net = ode_func_net
-        self.nonlinear_func = nonlinear_func
         self._interp = interp
         if interp == 'linear':
             self._interp_fn = linear_interp
@@ -46,7 +44,7 @@ class ControlledODEFunc(nn.Module):
     def forward(self, t: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         u_t = self._u_at(t)                                        # (B,u_dim)
         out = self.ode_func_net(torch.cat([z, u_t], dim=-1))
-        return self.nonlinear_func(out) if self.nonlinear_func else out
+        return out
 
 
 class DiffEqSolver(nn.Module):
@@ -85,7 +83,58 @@ class DiffEqSolver(nn.Module):
                 z0,
                 t,
                 method = method or self.method,
-                rtol   = rtol   or self.rtol,
-                atol   = atol   or self.atol,
+                rtol   = rtol   or self.rtol or 1e-3,
+                atol   = atol   or self.atol or 1e-6,
         )                              # (T, B, latent)
+        z = z.permute(1, 0, 2)  # (B, T, latent)
+        return z
+
+
+class AugmentedDiffEqSolver(nn.Module):
+    """ augmented ODE solver based on the paper "Augmented Neural ODEs" """
+    def __init__(self,
+                 ode_func: ControlledODEFunc,
+                 augmented_dim: int = 0,
+                 *,
+                 method: str = "dopri5",
+                 rtol:   Optional[float] = None,
+                 atol:   Optional[float] = None):
+        super().__init__()
+        self.ode_func = ode_func
+        self.method, self.rtol, self.atol = method, rtol, atol
+        self.augmented_dim = augmented_dim
+
+    def forward(self,
+                z0: torch.Tensor,        # (B, latent)
+                t:  torch.Tensor,        # (T,)  OR (B,T) OR (B,T,1)
+                u:  Optional[torch.Tensor] = None,        # (B,T,u_dim)
+                *,
+                method: Optional[str] = None,
+                rtol:   Optional[float] = None,
+                atol:   Optional[float] = None): # (B, latent)
+        
+        latent_dim = z0.shape[1]
+        if self.augmented_dim > 0:
+            h0 = torch.zeros(z0.shape[0], self.augmented_dim).to(z0.device) # (B, augmented_dim)
+            z0 = torch.cat([z0, h0], dim=-1)  # (B, latent + augmented_dim)
+        if t.ndim == 3:                           # (B,T,1)
+            t = t[0, :, 0]
+        elif t.ndim == 2:                         # (B,T)
+            t = t[0]
+        t = t.to(z0.device)
+
+        if u is not None:
+            assert u.shape[1] == t.numel(), "`u` and `t` lengths differ"
+            self.ode_func.u     = u.to(z0.device)
+            self.ode_func.times = t
+        z = odeint(
+                self.ode_func,
+                z0,
+                t,
+                method = method or self.method,
+                rtol   = rtol   or self.rtol or 1e-3,
+                atol   = atol   or self.atol or 1e-6,
+        )      # (T, B, latent + augmented_dim)
+        z = z[:, :, :latent_dim]  # (T, B, latent)
+        z = z.permute(1, 0, 2)  # (B, T, latent)
         return z

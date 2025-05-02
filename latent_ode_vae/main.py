@@ -23,16 +23,21 @@ if encoder_type == 'id':
     latent_dim = input_dim * sub_length
 
 # create model
-model = LatentODEVAE(input_dim, latent_dim, control_dim, device, sub_length, encoder_type,
-    encoder_hidden_dim, encoder_num_layers, encoder_activation, ode_hidden_dim, ode_num_layers, 
-    ode_activation, decoder_hidden_dim, decoder_num_layers, decoder_activation, kl_coeff)
+model = LatentODEVAE(input_dim, latent_dim, control_dim, augmented_dim, device, sub_length, 
+                     encoder_type, encoder_hidden_dim, encoder_num_layers, encoder_activation, 
+                     ode_hidden_dim, ode_num_layers, ode_activation, 
+                     decoder_hidden_dim, decoder_num_layers, decoder_activation, 
+                     learning_rate, kl_coeff)
 model.to(device)
 
 # train model
 if length_scheduler and encoder_type in ['gru', 'odegru']:
-    train_with_length_scheduler(model, dataset, max_sub_length, num_batches, num_samples_per_batch, num_epochs, encoder_type)
+    print("Training with length scheduler")
+    train_with_length_scheduler(model, dataset, max_sub_length, num_batches, 
+                                num_samples_per_batch, num_epochs, encoder_type,
+                                min_sub_length, length_step, epoch_step)
 else:
-    train(model, dataset, sub_length, num_batches, num_samples_per_batch, num_epochs, encoder_type,
-                                min_sub_length, growth_coef)
+    train(model, dataset, sub_length, num_batches, 
+          num_samples_per_batch, num_epochs, encoder_type)
 
 

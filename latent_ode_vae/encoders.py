@@ -137,10 +137,12 @@ class GRUEncoder(RNNEncoderBase):
 class ODEGRUEncoder(RNNEncoderBase):
     """encoder that alternates between GRU updates and ODE evolution.
     based on the paper "Latent Ordinary Differential Equations for Irregularly-Sampled Time Series" by
-    Rubanova et al. (2019). particularly useful for irregularly sampled time series data."""
-    def __init__(self, input_dim, hidden_dim, latent_dim, device, method='dopri5', rtol=1e-5, atol=1e-5):
+    Rubanova et al. (2019)."""
+    def __init__(self, input_dim, hidden_dim, latent_dim, num_layers, activation, device, method='dopri5', rtol=1e-3, atol=1e-6):
         super(ODEGRUEncoder, self).__init__(input_dim, hidden_dim, latent_dim, device)
-        self.ode_func = ODEFunc(hidden_dim)
+        print(activation)
+        self.ode_func_net = utils.create_mlp(hidden_dim, hidden_dim, hidden_dim, num_layers, activation)
+        self.ode_func = ODEFunc(self.ode_func_net)
         self.gru_cell = nn.GRUCell(input_dim, hidden_dim)
         self.fc_mu = nn.Linear(hidden_dim, latent_dim)
         self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
@@ -159,10 +161,14 @@ class ODEGRUEncoder(RNNEncoderBase):
 
         # loop through sequence, ODE evolve then GRU update
         for i in range(1, seq_len):
-            t0, t1 = t[i - 1], t[i]
+            t0, t1 = t[0, i-1, :].item(), t[0, i, :].item()
             t_tensor = torch.tensor([t0, t1], dtype=torch.float32, device=self.device)
             # evolve hidden state via ODE
-            h = odeint(self.ode_func, h, t_tensor, atol=self.ode_atol, rtol=self.ode_rtol, method=self.ode_method)[-1]
+            h = odeint(self.ode_func, h, t_tensor, 
+                       method=self.ode_method, 
+                       rtol = self.ode_rtol,
+                       atol = self.ode_atol,
+                       )[-1]
             # GRU update with new observation
             h = self.gru_cell(x[:, i, :], h)
 

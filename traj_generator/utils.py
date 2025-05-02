@@ -20,9 +20,9 @@ def convert_trajs_with_action(trajs):
 
     return positions, actions, times
 
-def plot_trajectories(N, positions, actions, times):
+def plot_trajectories(positions, actions, times):
     fig = go.Figure()
-    N = 20
+    N = 5
     for i in range(N):
         fig.add_trace(go.Scatter3d(
             x=positions[i, :, 0],

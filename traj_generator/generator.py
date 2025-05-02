@@ -147,7 +147,7 @@ class TrajectoryGenerator:
         big_traj: list[tuple[np.ndarray, np.ndarray, float]] = []
 
         x = np.copy(x0).astype(np.float32)
-        for k in range(total_steps):
+        for k in tqdm(range(total_steps)):
             t = k * self.dt
             u = self.policy.act(x, t)
             if action_noise_std > 0.0:
