@@ -27,6 +27,7 @@ class LatentODEVAE(DynamicsLearner):
         latent_dim,
         control_dim,
         augmented_dim,
+        output_dim,
         device,
         traj_length,
         encoder_type='mlp',
@@ -89,7 +90,7 @@ class LatentODEVAE(DynamicsLearner):
             self.ode_solver = DiffEqSolver(self.ode_func, method=ode_method, use_adjoint=ode_use_adjoint)
 
         # decoder
-        self.decoder = MLPDecoder(input_dim, decoder_hidden_dim, latent_dim, decoder_num_layers, decoder_activation, device)
+        self.decoder = MLPDecoder(input_dim, decoder_hidden_dim, latent_dim, output_dim, decoder_num_layers, decoder_activation, device)
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)

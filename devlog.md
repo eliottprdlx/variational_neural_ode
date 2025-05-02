@@ -48,8 +48,13 @@ latent_ode_vae
 - added length scheduler to train the model on length-increasing sub trajectories
 - added adjoint_odeint compatibility
 - major debugging
+- added partial observability + tests
+- improved visualization
 
 # TODO 
 
 latent_ode_vae
 - create a workflow to launch a testing phase
+
+rl
+- continue coding the abstract framework

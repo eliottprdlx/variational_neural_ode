@@ -76,19 +76,23 @@ def plot_control(ctrl, dt, length):
     fig.show()
 
 
-def run(gen, mode, n_traj, length, dyn_name, ctrl_name, length_scale):
+def run(gen, mode, n_traj, length, dyn_name, ctrl_name, length_scale, state_dim, x0=None):
     if mode == 'multi':
-        starts = [np.random.randn(3).astype(np.float32) for _ in range(n_traj)]
+        starts = [np.random.randn(state_dim).astype(np.float32) for _ in range(n_traj)]
+        if x0 is not None:
+            starts = [x0] * n_traj
         trajs = gen.rollout(
-            x0=np.zeros(3, dtype=np.float32),
+            x0=np.zeros(state_dim, dtype=np.float32),
             n_traj=n_traj,
             traj_length=length,
             mode="multi",
             start_points=starts,
         )
     elif mode == 'long':
+        if x0 is None:
+            x0 = np.zeros(state_dim, dtype=np.float32)
         trajs = gen.rollout(
-        x0=np.zeros(3, dtype=np.float32),
+        x0=x0,
         n_traj=n_traj,
         traj_length=length,
         mode="long",

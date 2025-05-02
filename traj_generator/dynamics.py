@@ -61,6 +61,10 @@ class Lorenz(Dynamics):
         self.rho = rho
         self.beta = beta
         self.gain = np.asarray(gain, dtype=np.float32)
+    
+    @property
+    def state_dim(self) -> int:
+        return 3
 
     def rhs(self, t: float, x: np.ndarray, u: np.ndarray) -> np.ndarray:
         # Ensure we have a usable control vector
@@ -98,6 +102,10 @@ class SimplePendulum(Dynamics):
         self.mass = mass
         self.gravity = gravity
         self.damping = damping
+    
+    @property
+    def state_dim(self) -> int:
+        return 2
 
     def rhs(self, t: float, x: np.ndarray, u: np.ndarray) -> np.ndarray:
         theta, omega = x
@@ -140,6 +148,10 @@ class DoublePendulum(Dynamics):
         self.g = gravity
         self.d1 = damping1
         self.d2 = damping2
+    
+    @property
+    def state_dim(self) -> int:
+        return 4
 
     def rhs(self, t: float, x: np.ndarray, u: np.ndarray) -> np.ndarray:
         theta1, omega1, theta2, omega2 = x

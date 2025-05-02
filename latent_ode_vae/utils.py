@@ -6,6 +6,7 @@ from plotly.subplots import make_subplots
 from sklearn.decomposition import PCA
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 def create_mlp(input_dim, hidden_dim, output_dim, num_layers=2, activation='relu'):
@@ -29,7 +30,7 @@ def create_mlp(input_dim, hidden_dim, output_dim, num_layers=2, activation='relu
     return nn.Sequential(*layers)
 
 
-def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encoder_type):
+def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encoder_type, masker=None):
 
     opt = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
     clip = 1.0
@@ -43,7 +44,11 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
             obs, t, act = dataset.sample_subsequences(sub_length, batch_size)
             obs, t, act = obs.to(model.device), t.to(model.device), act.to(model.device)
 
-            x_hat, mu, logvar, _ = model(obs, t, act)
+            masked_obs = obs
+            if masker is not None:
+                masked_obs = masker(obs)
+
+            x_hat, mu, logvar, _ = model(masked_obs, t, act)
             tot, rec, kl = model.loss_function(x_hat, obs, mu, logvar, epoch)
             tot = rec + kl
             baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).sum()/obs.size(0)
@@ -55,13 +60,13 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
 
             ep_tot += tot.item(); ep_rec += rec.item(); ep_kl += kl.item()
 
-        total_hist.append(ep_tot / num_batches*sub_length)
-        recon_hist.append(ep_rec / num_batches*sub_length)
-        kl_hist.append(ep_kl / num_batches*sub_length)
+        total_hist.append(ep_tot / num_batches)
+        recon_hist.append(ep_rec / num_batches)
+        kl_hist.append(ep_kl / num_batches)
         print(f"loss {total_hist[-1]:.4f}  "
         f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
         f"baseline mse {baseline_mse: .4f}")
-        if epoch % 20 == 0:
+        if epoch % 20 == 19:
             _plot_reconstruction(
                     obs[0],
                     x_hat[0],
@@ -81,7 +86,8 @@ def train_with_length_scheduler(
     encoder_type,
     min_sub_length=10,
     length_step=5,
-    epoch_step=20
+    epoch_step=20,
+    masker=None,
 ):
     opt = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
     clip = 1.0
@@ -98,7 +104,11 @@ def train_with_length_scheduler(
             obs, t, act = dataset.sample_subsequences(sub_length, batch_size)
             obs, t, act = obs.to(model.device), t.to(model.device), act.to(model.device)
 
-            x_hat, mu, logvar, _ = model(obs, t, act)
+            masked_obs = obs
+            if masker is not None:
+                masked_obs = masker(obs)
+
+            x_hat, mu, logvar, _ = model(masked_obs, t, act)
             tot, rec, kl = model.loss_function(x_hat, obs, mu, logvar, epoch)
 
             opt.zero_grad()
@@ -119,8 +129,8 @@ def train_with_length_scheduler(
               f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
               f"baseline mse {baseline_mse: .4f}")
 
-        if epoch % 20 == 0:
-            _plot_reconstruction(obs[0], x_hat[0], act[0], epoch)
+        if epoch % 20 == 19:
+            _plot_reconstruction_batch(obs, x_hat, act, epoch)
 
     _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
 
@@ -184,6 +194,83 @@ def _plot_reconstruction(
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom",
                     y=1.02, xanchor="right", x=1.0),
+    )
+    fig.update_xaxes(title_text="time step", row=D + C, col=1)
+    fig.show()
+
+def _plot_reconstruction_batch(
+    obs: torch.Tensor,
+    hat: torch.Tensor,
+    ctrl: torch.Tensor,
+    epoch: int,
+    N: int = 3,  # Number of trajectories to plot
+):
+    obs_np  = obs.detach().cpu().numpy()   # (B, T, D)
+    hat_np  = hat.detach().cpu().numpy()   # (B, T, D)
+    ctrl_np = ctrl.detach().cpu().numpy()  # (B, T, C)
+
+    B, T, D = obs_np.shape
+    _, _, C = ctrl_np.shape
+    time_axis = np.arange(T)
+
+    titles = [f"state {d}" for d in range(D)] + [f"control {c}" for c in range(C)]
+    fig = make_subplots(
+        rows=D + C,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.02,
+        subplot_titles=titles,
+    )
+
+    # Create a color map for each (b, d)
+    colormap = plt.get_cmap("tab10")
+
+    for b in range(min(N, B)):
+        for d in range(D):
+            color = colormap(b)  # cycle through colors
+            rgba = f"rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, 1.0)"
+
+            fig.add_trace(
+                go.Scatter(
+                    x=time_axis,
+                    y=obs_np[b, :, d],
+                    mode="lines",
+                    name=f"truth b{b} d{d}",
+                    line=dict(dash="solid", color=rgba),
+                    showlegend=False,
+                ),
+                row=d + 1, col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=time_axis,
+                    y=hat_np[b, :, d],
+                    mode="lines",
+                    name=f"recon b{b} d{d}",
+                    line=dict(dash="dash", color=rgba),
+                    showlegend=False,
+                ),
+                row=d + 1, col=1,
+            )
+
+        for c in range(C):
+            fig.add_trace(
+                go.Scatter(
+                    x=time_axis,
+                    y=ctrl_np[b, :, c],
+                    mode="lines",
+                    name=f"control b{b} c{c}",
+                    showlegend=False,
+                ),
+                row=D + c + 1, col=1,
+            )
+
+    fig.update_layout(
+        height=250 * (D + C),
+        width=800,
+        title_text=f"Reconstruction + control at epoch {epoch} ({N} trajectories)",
+        showlegend=False,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1.0),
     )
     fig.update_xaxes(title_text="time step", row=D + C, col=1)
     fig.show()

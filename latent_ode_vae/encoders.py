@@ -17,7 +17,7 @@ class IdentityEncoder(nn.Module):
                 "IdentityEncoder requires input_dim == latent_dim ")
         self.device = device
 
-    def forward(self, x):
+    def forward(self, x, t=None):
         x = x.view(x.size(0), -1)
         mu = x
         logvar = torch.zeros_like(mu)
@@ -47,7 +47,7 @@ class LaplaceEncoder(nn.Module):
         self.fc_mu     = nn.Linear(self.hidden_dim, self.latent_dim).to(device)
         self.fc_logvar = nn.Linear(self.hidden_dim, self.latent_dim).to(device)
 
-    def forward(self, x):
+    def forward(self, x, t=None):
         """
         x : (B, T, D)   — time-major input batch
         returns  μ, log σ²  each (B, latent_dim)
@@ -88,7 +88,7 @@ class MLPEncoder(nn.Module):
         self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
         self.device = device
     
-    def forward(self, x):
+    def forward(self, x, t=None):
         batch_size = x.size(0)
         x = x.view(batch_size, -1)
         h = torch.relu(self.fc1(x))
