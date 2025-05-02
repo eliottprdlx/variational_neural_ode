@@ -36,6 +36,8 @@ class LatentODEVAE(DynamicsLearner):
         ode_hidden_dim=64,
         ode_num_layers=3,
         ode_activation='tanh',
+        ode_method='dopri5',
+        ode_use_adjoint=True,
         decoder_hidden_dim=64,
         decoder_num_layers=3,
         decoder_activation='relu',
@@ -82,9 +84,9 @@ class LatentODEVAE(DynamicsLearner):
 
         # ODE solver
         if augmented_dim > 0:
-            self.ode_solver = AugmentedDiffEqSolver(self.ode_func, augmented_dim, method='dopri5')
+            self.ode_solver = AugmentedDiffEqSolver(self.ode_func, augmented_dim, method=ode_method, use_adjoint=ode_use_adjoint)
         else:
-            self.ode_solver = DiffEqSolver(self.ode_func, method="dopri5")
+            self.ode_solver = DiffEqSolver(self.ode_func, method=ode_method, use_adjoint=ode_use_adjoint)
 
         # decoder
         self.decoder = MLPDecoder(input_dim, decoder_hidden_dim, latent_dim, decoder_num_layers, decoder_activation, device)

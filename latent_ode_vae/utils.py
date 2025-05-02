@@ -55,9 +55,9 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
 
             ep_tot += tot.item(); ep_rec += rec.item(); ep_kl += kl.item()
 
-        total_hist.append(ep_tot / num_batches)
-        recon_hist.append(ep_rec / num_batches)
-        kl_hist.append(ep_kl / num_batches)
+        total_hist.append(ep_tot / num_batches*sub_length)
+        recon_hist.append(ep_rec / num_batches*sub_length)
+        kl_hist.append(ep_kl / num_batches*sub_length)
         print(f"loss {total_hist[-1]:.4f}  "
         f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
         f"baseline mse {baseline_mse: .4f}")
@@ -132,7 +132,7 @@ def _plot_losses(total_losses, recon_losses, kl_losses, encoder_type):
     fig.add_trace(go.Scatter(y=kl_losses, mode='lines', name='KL Divergence Loss'))
     fig.update_layout(title='Losses during Training', xaxis_title='Epochs', yaxis_title='Loss')
     fig.show()
-    fig.write_html(f"LatentODE/plots/losses_{encoder_type}.html")
+    fig.write_html(f"latent_ode_vae/plots/losses_{encoder_type}.html")
 
 
 def _plot_reconstruction(

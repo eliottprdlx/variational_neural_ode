@@ -41,11 +41,15 @@ latent_ode_vae
 traj_generator
 - create : ok
 
+# 02/05/2025
+
+latent_ode_vae
+- added augmented diff eq solver based on "Augmented Neural ODEs" paper
+- added length scheduler to train the model on length-increasing sub trajectories
+- added adjoint_odeint compatibility
+- major debugging
+
 # TODO 
 
 latent_ode_vae
-- test under different conditions
-- in-depth study of the good practice to train neuralODE
-- start implementing ANODE
-
-Create a workflow to launch a testing phase
+- create a workflow to launch a testing phase

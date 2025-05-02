@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchdiffeq import odeint as odeint
+from torchdiffeq import odeint, odeint_adjoint
 from interpolation import linear_interp, gaussian_interp
 from typing import Callable, Union, Optional, Dict
 
@@ -52,11 +52,13 @@ class DiffEqSolver(nn.Module):
                  ode_func: ControlledODEFunc,
                  *,
                  method: str = "dopri5",
+                 use_adjoint: bool = False,
                  rtol:   float = 1e-5,
                  atol:   float = 1e-5):
         super().__init__()
         self.ode_func = ode_func
         self.method, self.rtol, self.atol = method, rtol, atol
+        self.use_adjoint = use_adjoint
 
     def forward(self,
                 z0: torch.Tensor,        # (B, latent)
@@ -64,6 +66,7 @@ class DiffEqSolver(nn.Module):
                 u:  Optional[torch.Tensor] = None,        # (B,T,u_dim)
                 *,
                 method: Optional[str] = None,
+                use_adjoint: Optional[bool] = False,
                 rtol:   Optional[float] = None,
                 atol:   Optional[float] = None):
         
@@ -77,8 +80,13 @@ class DiffEqSolver(nn.Module):
             assert u.shape[1] == t.numel(), "`u` and `t` lengths differ"
             self.ode_func.u     = u.to(z0.device)
             self.ode_func.times = t
+        
+        if self.use_adjoint or use_adjoint:
+            odeint_func = odeint_adjoint
+        else:
+            odeint_func = odeint
 
-        z = odeint(
+        z = odeint_func(
                 self.ode_func,
                 z0,
                 t,
@@ -97,18 +105,21 @@ class AugmentedDiffEqSolver(nn.Module):
                  augmented_dim: int = 0,
                  *,
                  method: str = "dopri5",
+                 use_adjoint: bool = False,
                  rtol:   Optional[float] = None,
                  atol:   Optional[float] = None):
         super().__init__()
         self.ode_func = ode_func
         self.method, self.rtol, self.atol = method, rtol, atol
         self.augmented_dim = augmented_dim
+        self.use_adjoint = use_adjoint
 
     def forward(self,
                 z0: torch.Tensor,        # (B, latent)
                 t:  torch.Tensor,        # (T,)  OR (B,T) OR (B,T,1)
                 u:  Optional[torch.Tensor] = None,        # (B,T,u_dim)
                 *,
+                use_adjoint: Optional[bool] = False,
                 method: Optional[str] = None,
                 rtol:   Optional[float] = None,
                 atol:   Optional[float] = None): # (B, latent)
@@ -127,7 +138,12 @@ class AugmentedDiffEqSolver(nn.Module):
             assert u.shape[1] == t.numel(), "`u` and `t` lengths differ"
             self.ode_func.u     = u.to(z0.device)
             self.ode_func.times = t
-        z = odeint(
+
+        if self.use_adjoint or use_adjoint:
+            odeint_func = odeint_adjoint
+        else:
+            odeint_func = odeint
+        z = odeint_func(
                 self.ode_func,
                 z0,
                 t,

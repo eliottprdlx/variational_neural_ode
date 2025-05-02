@@ -22,7 +22,7 @@ def convert_trajs_with_action(trajs):
 
 def plot_trajectories(positions, actions, times):
     fig = go.Figure()
-    N = 5
+    N = 20
     for i in range(N):
         fig.add_trace(go.Scatter3d(
             x=positions[i, :, 0],
@@ -48,7 +48,35 @@ def plot_trajectories(positions, actions, times):
     fig.show()
     fig = go.Figure()
 
-def run(gen, mode, n_traj, length, dyn_name, ctrl_name):
+def plot_control(ctrl, dt, length):
+    fig = go.Figure()
+    t = np.arange(0, length, dt)
+    ctrl = np.array([ctrl.act(np.zeros(3), t_i) for t_i in t])
+    fig.add_trace(go.Scatter3d(
+        x=ctrl[:, 0],
+        y=ctrl[:, 1],
+        z=ctrl[:, 2],
+        mode='lines',
+        line=dict(width=2),
+        name='Control Trajectory',
+        opacity=0.8
+    ))
+
+    fig.update_layout(
+        title='3D Control Trajectory',
+        scene=dict(
+            xaxis_title='X',
+            yaxis_title='Y',
+            zaxis_title='Z'
+        ),
+        legend=dict(itemsizing='constant'),
+        margin=dict(l=0, r=0, b=0, t=40)
+    )
+
+    fig.show()
+
+
+def run(gen, mode, n_traj, length, dyn_name, ctrl_name, length_scale):
     if mode == 'multi':
         starts = [np.random.randn(3).astype(np.float32) for _ in range(n_traj)]
         trajs = gen.rollout(
@@ -71,7 +99,7 @@ def run(gen, mode, n_traj, length, dyn_name, ctrl_name):
     positions, actions, times = convert_trajs_with_action(trajs)
     plot_trajectories(positions, actions, times)
     np.savez(
-                f"trajectories/{dyn_name}_{ctrl_name}.npz",
+                f"trajectories/{dyn_name}_{ctrl_name}_{mode}_{length_scale}.npz",
                 observations=positions,
                 times=times,
                 actions=actions

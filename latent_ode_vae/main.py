@@ -25,7 +25,7 @@ if encoder_type == 'id':
 # create model
 model = LatentODEVAE(input_dim, latent_dim, control_dim, augmented_dim, device, sub_length, 
                      encoder_type, encoder_hidden_dim, encoder_num_layers, encoder_activation, 
-                     ode_hidden_dim, ode_num_layers, ode_activation, 
+                     ode_hidden_dim, ode_num_layers, ode_activation, ode_method, ode_use_adjoint,
                      decoder_hidden_dim, decoder_num_layers, decoder_activation, 
                      learning_rate, kl_coeff)
 model.to(device)

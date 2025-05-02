@@ -119,6 +119,7 @@ class TrajectoryGenerator:
     ):
         trajectories = []
         for idx in tqdm(range(n_traj)):
+            self.policy.randomize(seed=idx)
             if start_points is not None:
                 x = np.copy(start_points[idx]).astype(np.float32)
             else:
