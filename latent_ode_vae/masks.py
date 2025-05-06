@@ -5,6 +5,7 @@ class BaseMasker:
     @property
     def _dim(self) -> int:
         raise NotImplementedError("BaseMasker is an abstract class")
+    
     def __call__(self, obs: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError("BaseMasker is an abstract class")
 

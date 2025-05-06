@@ -51,10 +51,19 @@ latent_ode_vae
 - added partial observability + tests
 - improved visualization
 
+# 06/05/2025
+
+latent_ode_vae
+- compared different types of encoders : selected rnn-based encoder
+- train function refactorization : warmup and optimizer scheduler
+- added sampling and visualization of imagined attractor
+- global modularization and improvement of the code
+
 # TODO 
 
 latent_ode_vae
-- create a workflow to launch a testing phase
+- try normalizing flows to better capture the data distribution
+- test the model on more complex real world datas such as cartpole
 
 rl
 - continue coding the abstract framework

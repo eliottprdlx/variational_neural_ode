@@ -18,6 +18,10 @@ class DynamicsLearner(nn.Module):
     @abstractmethod
     def loss_function(self, x_recon, x, *extras):
         ...
+    
+    @abstractmethod
+    def sample(self, N, t, u=None, **kwargs):
+        ...
 
 
 class LatentODEVAE(DynamicsLearner):
@@ -120,7 +124,6 @@ class LatentODEVAE(DynamicsLearner):
         z = self.ode_solver(z0, t, u, method=method, rtol=rtol, atol=atol)
         x_recon = self.decoder(z)
         return x_recon, z
-
 
 
 class ANODE(DynamicsLearner): ... # TODO : code

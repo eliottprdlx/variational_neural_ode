@@ -1,12 +1,14 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmRestarts
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.decomposition import PCA
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import math
 
 
 def create_mlp(input_dim, hidden_dim, output_dim, num_layers=2, activation='relu'):
@@ -29,70 +31,22 @@ def create_mlp(input_dim, hidden_dim, output_dim, num_layers=2, activation='relu
     
     return nn.Sequential(*layers)
 
-
-def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encoder_type, masker=None):
-    opt = torch.optim.Adam([
-        {"params": model.encoder.parameters(), "lr": model.encoder_learning_rate},
-        {"params": model.ode_func_net.parameters(), "lr": model.ode_learning_rate},
-        {"params": model.decoder.parameters(), "lr": model.decoder_learning_rate},
-    ])
-    clip = 1.0
-    total_hist, recon_hist, kl_hist = [], [], []
-
-    for epoch in range(num_epochs):
-        model.train()
-        ep_tot = ep_rec = ep_kl = 0.0
-
-        for _ in tqdm(range(num_batches), desc=f"Epoch {epoch}"):
-            obs, t, act = dataset.sample_subsequences(sub_length, batch_size)
-            obs, t, act = obs.to(model.device), t.to(model.device), act.to(model.device)
-
-            masked_obs = obs
-            if masker is not None:
-                masked_obs = masker(obs)
-
-            x_hat, mu, logvar, _ = model(masked_obs, t, act)
-            tot, rec, kl = model.loss_function(x_hat, obs, mu, logvar, epoch)
-            tot = rec + kl
-            baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).sum()/obs.size(0)
-
-            opt.zero_grad()
-            tot.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
-            opt.step()
-
-            ep_tot += tot.item(); ep_rec += rec.item(); ep_kl += kl.item()
-
-        total_hist.append(ep_tot / num_batches)
-        recon_hist.append(ep_rec / num_batches)
-        kl_hist.append(ep_kl / num_batches)
-        print(f"loss {total_hist[-1]:.4f}  "
-        f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
-        f"baseline mse {baseline_mse: .4f}")
-        if epoch % 20 == 19:
-            _plot_reconstruction(
-                    obs[0],
-                    x_hat[0],
-                    act[0],
-                    epoch,
-                )
-    _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
-    return total_hist, recon_hist, kl_hist
-
-
-def train_with_length_scheduler(
+def pretrain_with_length_warmup(
     model,
     dataset,
+    min_sub_length,
     max_sub_length,
     num_batches,
     batch_size,
-    num_epochs,
-    encoder_type,
-    min_sub_length=10,
     length_step=5,
     epoch_step=20,
     masker=None,
 ):
+    num_length_increments = math.ceil((max_sub_length - min_sub_length) / length_step)
+    num_epochs = num_length_increments * epoch_step
+
+    print(f"[Pretrain] Automatically setting num_epochs = {num_epochs} to reach sub_length={max_sub_length}")
+
     opt = torch.optim.Adam([
         {"params": model.encoder.parameters(), "lr": model.encoder_learning_rate},
         {"params": model.ode_func_net.parameters(), "lr": model.ode_learning_rate},
@@ -108,13 +62,11 @@ def train_with_length_scheduler(
         sub_length = int(min_sub_length + length_step * (epoch // epoch_step))
         sub_length = min(sub_length, max_sub_length)
 
-        for _ in tqdm(range(num_batches), desc=f"Epoch {epoch} | sub_length={sub_length}"):
+        for _ in tqdm(range(num_batches), desc=f"[Pretrain] Epoch {epoch} | sub_length={sub_length}"):
             obs, t, act = dataset.sample_subsequences(sub_length, batch_size)
             obs, t, act = obs.to(model.device), t.to(model.device), act.to(model.device)
 
-            masked_obs = obs
-            if masker is not None:
-                masked_obs = masker(obs)
+            masked_obs = masker(obs) if masker else obs
 
             x_hat, mu, logvar, _ = model(masked_obs, t, act)
             tot, rec, kl = model.loss_function(x_hat, obs, mu, logvar, epoch)
@@ -127,21 +79,79 @@ def train_with_length_scheduler(
             ep_tot += tot.item()
             ep_rec += rec.item()
             ep_kl += kl.item()
+            baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).sum() / obs.size(0)
+
+        total_hist.append(ep_tot / num_batches)
+        recon_hist.append(ep_rec / num_batches)
+        kl_hist.append(ep_kl / num_batches)
+
+        print(f"[Pretrain] loss {total_hist[-1]:.4f}  recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  baseline mse {baseline_mse: .4f}")
+
+        if epoch % 20 == 19:
+            _plot_reconstruction_batch(obs, x_hat, act, epoch)
+
+    return total_hist, recon_hist, kl_hist
+
+
+def train(
+    model,
+    dataset,
+    max_sub_length,
+    num_batches,
+    batch_size,
+    num_epochs,
+    encoder_type,
+    masker=None,
+    scheduler_patience=5,
+    scheduler_factor=0.5,
+):
+    opt = torch.optim.Adam([
+        {"params": model.encoder.parameters(), "lr": model.encoder_learning_rate},
+        {"params": model.ode_func_net.parameters(), "lr": model.ode_learning_rate},
+        {"params": model.decoder.parameters(), "lr": model.decoder_learning_rate},
+    ])
+    clip = 1.0
+    total_hist, recon_hist, kl_hist = [], [], []
+    # scheduler = ReduceLROnPlateau(opt, mode='min', factor=scheduler_factor, patience=scheduler_patience)
+    scheduler = CosineAnnealingWarmRestarts(opt, T_0=10, T_mult=2)
+
+    for epoch in range(num_epochs):
+        model.train()
+        ep_tot = ep_rec = ep_kl = 0.0
+
+        for _ in tqdm(range(num_batches), desc=f"[Train] Epoch {epoch}"):
+            obs, t, act = dataset.sample_subsequences(max_sub_length, batch_size)
+            obs, t, act = obs.to(model.device), t.to(model.device), act.to(model.device)
+
+            masked_obs = masker(obs) if masker else obs
+
+            x_hat, mu, logvar, _ = model(masked_obs, t, act)
+            tot, rec, kl = model.loss_function(x_hat, obs, mu, logvar, epoch)
+
+            opt.zero_grad()
+            tot.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            opt.step()
+
+            scheduler.step(tot.item())
+
+            ep_tot += tot.item()
+            ep_rec += rec.item()
+            ep_kl += kl.item()
             baseline_mse = ((obs - obs.mean(dim=(0, 1), keepdim=True)) ** 2).sum()/obs.size(0)
 
         total_hist.append(ep_tot / num_batches)
         recon_hist.append(ep_rec / num_batches)
         kl_hist.append(ep_kl / num_batches)
 
-        print(f"loss {total_hist[-1]:.4f}  "
-              f"recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  "
-              f"baseline mse {baseline_mse: .4f}")
+        print(f"[Train] loss {total_hist[-1]:.4f}  recon {recon_hist[-1]:.4f}  KL {kl_hist[-1]:.4f}  baseline mse {baseline_mse: .4f}")
 
         if epoch % 20 == 19:
             _plot_reconstruction_batch(obs, x_hat, act, epoch)
 
     _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
     return total_hist, recon_hist, kl_hist
+
 
 
 def _plot_losses(total_losses, recon_losses, kl_losses, encoder_type):

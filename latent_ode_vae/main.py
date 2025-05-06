@@ -1,7 +1,7 @@
 import torch
 from dynamics_model import LatentODEVAE
 from dataset import Dataset
-from utils import train, train_with_length_scheduler, plot_imagined_trajectories
+from utils import train, pretrain_with_length_warmup, plot_imagined_trajectories
 from config import *
 from masks import FirstN
 
@@ -26,6 +26,7 @@ mask = FirstN(1)
 input_dim = mask._dim
 
 print(f"Obs dim: {output_dim} Control dim : {control_dim} Partial obs dim : {input_dim}")
+print(f"Encoder type : {encoder_type}")
 
 # special case when encoder_type = identity
 if encoder_type == 'id':
@@ -40,16 +41,19 @@ model = LatentODEVAE(input_dim, latent_dim, control_dim, augmented_dim, output_d
 model.to(device)
 
 # train model
-if length_scheduler and encoder_type in ['gru', 'odegru']:
-    print("Training with length scheduler")
-    total, kl, recon = train_with_length_scheduler(model, dataset, max_sub_length, num_batches, 
-                                num_samples_per_batch, num_epochs, encoder_type,
-                                min_sub_length, length_step, epoch_step, mask)
+if length_warmup and encoder_type in ['gru', 'odegru']:
+    print("Pre-training with length warmup ...")
+    total, kl, recon = pretrain_with_length_warmup(model, dataset, min_sub_length, max_sub_length, 
+                                                   num_batches, num_samples_per_batch, length_step, 
+                                                   epoch_step, masker=mask)
+    print("Training with full length ...")
+    total, kl, recon = train(model, dataset, max_sub_length, num_batches, 
+                            num_samples_per_batch, num_epochs, encoder_type, mask)
 else:
     total, kl, recon = train(model, dataset, sub_length, num_batches, 
           num_samples_per_batch, num_epochs, encoder_type,
-          mask)
+          masker=mask)
 
-plot_imagined_trajectories(model, dataset, sub_length, num_samples=10)
+plot_imagined_trajectories(model, dataset, sub_length, num_samples=100)
 
 
