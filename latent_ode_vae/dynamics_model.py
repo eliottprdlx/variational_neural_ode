@@ -34,15 +34,17 @@ class LatentODEVAE(DynamicsLearner):
         encoder_hidden_dim=64,
         encoder_num_layers=3,
         encoder_activation='relu',
+        encoder_learning_rate=1e-3,
         ode_hidden_dim=64,
         ode_num_layers=3,
         ode_activation='tanh',
         ode_method='dopri5',
         ode_use_adjoint=True,
+        ode_learning_rate=1e-3,
         decoder_hidden_dim=64,
         decoder_num_layers=3,
         decoder_activation='relu',
-        lr=1e-3,
+        decoder_learning_rate=1e-3,
         kl_coeff=1.0
     ):
         super(LatentODEVAE, self).__init__()
@@ -52,7 +54,9 @@ class LatentODEVAE(DynamicsLearner):
         self.augmented_dim = augmented_dim
         self.control_dim = control_dim
         self.traj_length = traj_length
-        self.learning_rate = lr
+        self.encoder_learning_rate = encoder_learning_rate
+        self.ode_learning_rate = ode_learning_rate
+        self.decoder_learning_rate = decoder_learning_rate
         self.kl_coeff = kl_coeff
 
         # encoder
@@ -110,6 +114,12 @@ class LatentODEVAE(DynamicsLearner):
         kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).mean()
         total = recon + self.kl_coeff * kl
         return total, recon, kl
+    
+    def sample(self, N, t, u=None, method=None, rtol=None, atol=None):
+        z0 = torch.randn(N, self.latent_dim).to(self.device)
+        z = self.ode_solver(z0, t, u, method=method, rtol=rtol, atol=atol)
+        x_recon = self.decoder(z)
+        return x_recon, z
 
 
 

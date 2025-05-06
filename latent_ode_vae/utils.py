@@ -31,8 +31,11 @@ def create_mlp(input_dim, hidden_dim, output_dim, num_layers=2, activation='relu
 
 
 def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encoder_type, masker=None):
-
-    opt = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
+    opt = torch.optim.Adam([
+        {"params": model.encoder.parameters(), "lr": model.encoder_learning_rate},
+        {"params": model.ode_func_net.parameters(), "lr": model.ode_learning_rate},
+        {"params": model.decoder.parameters(), "lr": model.decoder_learning_rate},
+    ])
     clip = 1.0
     total_hist, recon_hist, kl_hist = [], [], []
 
@@ -74,6 +77,7 @@ def train(model, dataset, sub_length, num_batches, batch_size, num_epochs, encod
                     epoch,
                 )
     _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
+    return total_hist, recon_hist, kl_hist
 
 
 def train_with_length_scheduler(
@@ -89,7 +93,11 @@ def train_with_length_scheduler(
     epoch_step=20,
     masker=None,
 ):
-    opt = torch.optim.Adam(model.parameters(), lr=model.learning_rate)
+    opt = torch.optim.Adam([
+        {"params": model.encoder.parameters(), "lr": model.encoder_learning_rate},
+        {"params": model.ode_func_net.parameters(), "lr": model.ode_learning_rate},
+        {"params": model.decoder.parameters(), "lr": model.decoder_learning_rate},
+    ])
     clip = 1.0
     total_hist, recon_hist, kl_hist = [], [], []
 
@@ -133,6 +141,7 @@ def train_with_length_scheduler(
             _plot_reconstruction_batch(obs, x_hat, act, epoch)
 
     _plot_losses(total_hist, recon_hist, kl_hist, encoder_type)
+    return total_hist, recon_hist, kl_hist
 
 
 def _plot_losses(total_losses, recon_losses, kl_losses, encoder_type):
@@ -274,3 +283,52 @@ def _plot_reconstruction_batch(
     )
     fig.update_xaxes(title_text="time step", row=D + C, col=1)
     fig.show()
+
+def plot_imagined_trajectories(
+    model,
+    dataset,
+    sub_length,
+    num_samples: int = 5,
+    t: torch.Tensor = None,
+    u: torch.Tensor = None,
+    method: str = None,
+    rtol: float = None,
+    atol: float = None,
+):
+
+    model.eval()
+    with torch.no_grad():
+        _, t_, u_ = dataset.sample_subsequences(sub_length, num_samples)
+        if t is None:
+            t = t_.to(model.device)
+        if u is None:
+            u = u_.to(model.device)
+
+        x_recon, z = model.sample(num_samples, t, u, method=method, rtol=rtol, atol=atol)
+        x_recon = x_recon.cpu().numpy()
+
+        fig = go.Figure()
+
+        for i in range(num_samples):
+            # Ensure the trajectory has at least 3 dimensions
+            assert x_recon.shape[2] >= 3, "Need at least 3D output per timestep to plot 3D trajectories"
+
+            traj = x_recon[i]  # shape: (time_steps, data_dim)
+            fig.add_trace(go.Scatter3d(
+                x=traj[:, 0],  # x-dim
+                y=traj[:, 1],  # y-dim
+                z=traj[:, 2],  # z-dim
+                mode='lines',
+                name=f'Trajectory {i}'
+            ))
+
+        fig.update_layout(
+            title='3D Trajectories of Imagined Dynamics',
+            scene=dict(
+                xaxis_title='Dim 1',
+                yaxis_title='Dim 2',
+                zaxis_title='Dim 3'
+            )
+        )
+
+        fig.show()
