@@ -68,8 +68,6 @@ class LatentODEVAE(DynamicsLearner):
             self.encoder = MLPEncoder(input_dim * traj_length, encoder_hidden_dim, latent_dim, encoder_num_layers, encoder_activation, device)
         elif encoder_type == 'id':
             self.encoder = IdentityEncoder(input_dim * traj_length, latent_dim, device)
-        elif encoder_type == 'laplace':
-            self.encoder = LaplaceEncoder(encoder_hidden_dim, latent_dim, encoder_num_layers, device)
         elif encoder_type == 'gru':
             self.encoder = GRUEncoder(input_dim, encoder_hidden_dim, latent_dim, encoder_num_layers, device)
         elif encoder_type == 'odegru':
