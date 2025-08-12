@@ -3,7 +3,6 @@ torchdiffeq
 numpy
 scikit-learn
 plotly
-gymnasium
 tqdm
 scipy
 matplotlib
