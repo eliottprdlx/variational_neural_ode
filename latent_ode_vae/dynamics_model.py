@@ -122,6 +122,3 @@ class LatentODEVAE(DynamicsLearner):
         z = self.ode_solver(z0, t, u, method=method, rtol=rtol, atol=atol)
         x_recon = self.decoder(z)
         return x_recon, z
-
-
-class ANODE(DynamicsLearner): ... # TODO : code
