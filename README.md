@@ -1,6 +1,6 @@
-# Time Series Generation for Offline Policy Learning
+# Time Series Generation
 
-Implementation of a variational Neural ODE model to generate original controlled dynamical trajectories to perform offline reinforcement learning in non-Markovian settings.
+Implementation of a variational Neural ODE model to generate controlled dynamical trajectories in non-Markovian settings.
 
 Based on the papers:
 
